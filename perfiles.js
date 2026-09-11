@@ -26,6 +26,12 @@ window.PERFILES = {
     etiquetaAplicado: "Para tu trabajo como quant",
     // Apariencia del personaje (ajustada con su foto)
     look: { piel: "triguena", pelo: "largo", colorPelo: "negro", barba: "ninguna", gafas: false, auriculares: false, aretes: true, sonrisa: "grande", camisa: "#d9342b" },
+    // Se muestra al elegir el perfil, con lluvia de pétalos y estrellas
+    dedicatoria: {
+      titulo: "Bienvenida, Juliana",
+      texto: "Sé que estabas interesada en aprender de esto, así que te hice este detalle con mucho cariño.",
+      firma: "— Fernando"
+    },
     modulos: ["fundamentos", "prompting", "agentes", "codex", "claude-code", "n8n", "obsidian", "bases", "obsidian-ia", "quant", "mirofish"],
     competencias: ["fundamentos", "prompting", "agentes", "agente-vscode", "n8n", "obsidian", "bases", "obsidian-ia", "quant", "mirofish"]
   }

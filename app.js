@@ -112,6 +112,65 @@
     document.body.classList.add("bienvenida-abierta");
   }
 
+  // ---------- Dedicatoria (se muestra al elegir un perfil que la tenga) ----------
+  var petalosActivo = false;
+  function mostrarDedicatoria(p) {
+    var d = p.dedicatoria, el = document.getElementById("dedicatoria");
+    if (!d || !el) return;
+    document.getElementById("dedicatoria-avatar").innerHTML = window.GAMI ? GAMI.avatar(0, p) : "";
+    document.getElementById("dedicatoria-titulo").textContent = d.titulo;
+    document.getElementById("dedicatoria-texto").textContent = d.texto;
+    document.getElementById("dedicatoria-firma").textContent = d.firma || "";
+    el.hidden = false;
+    document.body.classList.add("bienvenida-abierta");
+    petalos();
+  }
+  function cerrarDedicatoria() {
+    var el = document.getElementById("dedicatoria");
+    if (!el) return;
+    el.hidden = true; petalosActivo = false;
+    document.body.classList.remove("bienvenida-abierta");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  // Pétalos de rosa que caen meciéndose y estrellas que titilan, en el mismo canvas del confeti.
+  function petalos() {
+    var cv = document.getElementById("confetti");
+    if (!cv || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+    var ctx = cv.getContext("2d"), W = cv.width = window.innerWidth, H = cv.height = window.innerHeight;
+    var rosas = ["#e8536f", "#f28ca3", "#ffb3c1", "#d93b5c", "#fbd1da"], parts = [];
+    for (var i = 0; i < 70; i++) parts.push({ tipo: "p", x: Math.random() * W, y: -Math.random() * H, vy: 1 + Math.random() * 1.6, sway: Math.random() * Math.PI * 2, sv: .8 + Math.random() * 1.2, amp: 14 + Math.random() * 22, w: 9 + Math.random() * 9, h: 6 + Math.random() * 5, r: Math.random() * Math.PI, vr: (Math.random() - .5) * .04, c: rosas[i % rosas.length] });
+    for (var j = 0; j < 45; j++) parts.push({ tipo: "s", x: Math.random() * W, y: Math.random() * H, s: 3 + Math.random() * 5, f: Math.random() * Math.PI * 2, fv: 1.5 + Math.random() * 2.5, vy: .15 + Math.random() * .3 });
+    petalosActivo = true;
+    cv.classList.add("on");
+    var t0 = null;
+    function estrella(x, y, s, a) {
+      ctx.save(); ctx.translate(x, y); ctx.globalAlpha = a; ctx.fillStyle = "#ffd75e";
+      ctx.beginPath();
+      for (var k = 0; k < 8; k++) { var rad = k % 2 ? s * .38 : s, ang = k * Math.PI / 4; ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad); }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    function frame(t) {
+      if (!petalosActivo) { ctx.clearRect(0, 0, W, H); cv.classList.remove("on"); return; }
+      if (!t0) t0 = t;
+      var dt = (t - t0) / 1000;
+      ctx.clearRect(0, 0, W, H);
+      parts.forEach(function (p) {
+        if (p.tipo === "p") {
+          p.y += p.vy; p.sway += p.sv * .02; p.r += p.vr;
+          var x = p.x + Math.sin(p.sway) * p.amp;
+          if (p.y > H + 20) { p.y = -20; p.x = Math.random() * W; }
+          ctx.save(); ctx.translate(x, p.y); ctx.rotate(p.r + Math.sin(p.sway) * .4); ctx.fillStyle = p.c; ctx.globalAlpha = .9;
+          ctx.beginPath(); ctx.ellipse(0, 0, p.w / 2, p.h / 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        } else {
+          p.y += p.vy; if (p.y > H + 10) p.y = -10;
+          estrella(p.x, p.y, p.s, .35 + .65 * Math.abs(Math.sin(p.f + dt * p.fv)));
+        }
+      });
+      if (dt < 25) requestAnimationFrame(frame); else { petalosActivo = false; ctx.clearRect(0, 0, W, H); cv.classList.remove("on"); }
+    }
+    requestAnimationFrame(frame);
+  }
+
   // ---------- Pestañas ----------
   function activarTab(nombre, sinScroll) {
     document.querySelectorAll("[data-tab]").forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab") === nombre ? "true" : "false"); });
@@ -338,9 +397,13 @@
     // Bienvenida / cambio de perfil
     document.getElementById("bienvenida-opciones").addEventListener("click", function (e) {
       var b = e.target.closest("[data-perfil]");
-      if (b) { iniciarPerfil(b.getAttribute("data-perfil")); activarTab("curso", true); window.scrollTo({ top: 0, behavior: "instant" }); }
+      if (b) {
+        iniciarPerfil(b.getAttribute("data-perfil")); activarTab("curso", true); window.scrollTo({ top: 0, behavior: "instant" });
+        if (perfil.dedicatoria) mostrarDedicatoria(perfil);
+      }
     });
     document.getElementById("btn-cambiar-perfil").addEventListener("click", mostrarBienvenida);
+    document.getElementById("dedicatoria-ok").addEventListener("click", cerrarDedicatoria);
 
     document.querySelectorAll("#seg-lang button").forEach(function (b) {
       b.addEventListener("click", function () {

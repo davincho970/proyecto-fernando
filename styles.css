@@ -446,3 +446,23 @@ section[data-panel][hidden] { display: none; }
 .quien-nombre { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.01em; margin-top: .4rem; }
 .quien-rol { font-size: .82rem; color: var(--ink-3); }
 body.bienvenida-abierta { overflow: hidden; }
+
+/* ---------- Dedicatoria ---------- */
+.dedicatoria { position: fixed; inset: 0; z-index: 75; background: color-mix(in srgb, var(--bg) 80%, transparent); backdrop-filter: blur(6px); display: grid; place-items: center; padding: 1rem; overflow: auto; }
+.dedicatoria[hidden] { display: none; }
+.dedicatoria-card {
+  position: relative; z-index: 1; text-align: center; max-width: 520px; width: 100%;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 20px; padding: 2rem 1.8rem 1.7rem;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.45);
+  animation: dedicatoria-in .6s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes dedicatoria-in { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+.dedicatoria-card .eyebrow { font-size: .76rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #d93b5c; margin: 0 0 .5rem; }
+.dedicatoria-card h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.8rem, 4.5vw, 2.5rem); letter-spacing: -.025em; margin: 0 0 .7rem; }
+.dedicatoria-avatar { width: 96px; height: 150px; margin: 0 auto 1rem; background: var(--bg-sunk); border-radius: 12px; padding: 6px; }
+.dedicatoria-avatar svg { width: 100%; height: 100%; }
+.dedicatoria-texto { font-size: 1.08rem; color: var(--ink-2); margin: 0 0 .5rem; line-height: 1.5; }
+.dedicatoria-firma { font-family: var(--font-display); font-style: italic; color: var(--ink-3); margin: 0 0 1.3rem; }
+.dedicatoria .btn.primary { background: #d93b5c; border-color: #d93b5c; color: #fff; }
+.confetti.on { z-index: 78; }
+@media (prefers-reduced-motion: reduce) { .dedicatoria-card { animation: none; } }
