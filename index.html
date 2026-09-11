@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proyecto Fernando · Ruta de aprendizaje en IA</title>
+  <meta name="description" content="Curso curado de videos de YouTube, en español e inglés, sobre IA, agentes, Codex, Claude Code y Obsidian, pensado para un analista de crédito.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e6b55'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='34' text-anchor='middle' fill='%23fff'%3EF%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">Proyecto Fernando</p>
+          <h1>Ruta de aprendizaje en IA para un analista de crédito</h1>
+          <p class="lede">
+            <span id="total-videos">0</span> videos reales de YouTube (<span id="total-min">0</span> en total), en español e inglés,
+            en <span id="total-modulos">0</span> módulos: desde entender qué es un modelo de lenguaje hasta tener un agente
+            (Codex o Claude Code) trabajando sobre tu base de conocimiento en Obsidian y simular escenarios con MiroFish.
+            Un video por concepto e idioma; ninguno pasa de 40 minutos.
+          </p>
+        </div>
+        <div class="progress-card perfil-card" aria-live="polite">
+          <div class="avatar-wrap">
+            <div class="avatar" id="avatar"></div>
+            <span class="nivel-badge">Nv. <span id="nivel-num">0</span></span>
+          </div>
+          <div class="perfil-info">
+            <p class="label">Tu personaje</p>
+            <p class="big"><span id="nivel-titulo">Rookie</span></p>
+            <p class="frase" id="nivel-frase"></p>
+            <div class="bar" role="progressbar" aria-label="Progreso del curso"><span id="p-bar"></span></div>
+            <p class="sub"><b id="p-num">0</b> de <span id="total-videos-2">0</span> videos · <b id="p-pts">0</b> pts · Competencias: <b id="p-comp">0 de 10</b></p>
+            <p class="sub">Ruta ★: <b id="p-ruta">0 de 0</b> · Tiempo visto: <b id="p-min">0 min</b></p>
+            <p class="sub siguiente" id="nivel-siguiente"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="howto">
+        <div><b>1. Sigue la ruta ★</b>Los <span id="total-ruta">0</span> videos con estrella (<span id="ruta-min">0</span>) son el camino corto. Cuando hay uno en español y otro en inglés sobre lo mismo, mira solo uno.</div>
+        <div><b>2. Marca lo visto</b>El progreso se guarda en este navegador. Puedes filtrar por idioma, nivel o esconder lo ya visto.</div>
+        <div><b>3. Llévatelo a Obsidian</b>Al final de la página hay un botón que copia todo el curso como Markdown con tus casillas marcadas.</div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="toolbar" aria-label="Filtros y navegación">
+    <div class="wrap">
+      <div class="row">
+        <div class="seg" id="seg-lang" role="group" aria-label="Idioma">
+          <button type="button" data-lang="all" aria-pressed="true">Todos</button>
+          <button type="button" data-lang="es" aria-pressed="false">Español</button>
+          <button type="button" data-lang="en" aria-pressed="false">English</button>
+        </div>
+        <label class="sr-only" for="sel-nivel">Nivel</label>
+        <select id="sel-nivel">
+          <option value="all">Todos los niveles</option>
+          <option value="basico">Básico</option>
+          <option value="intermedio">Intermedio</option>
+          <option value="avanzado">Avanzado</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="chk-ruta"> Solo ruta ★</label>
+        <label class="toggle"><input type="checkbox" id="chk-ocultar"> Ocultar vistos</label>
+        <span class="spacer"></span>
+        <label class="sr-only" for="q">Buscar</label>
+        <input type="search" id="q" placeholder="Buscar: Obsidian, Codex, ratios…" autocomplete="off">
+        <button type="button" class="icon-btn" id="btn-theme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+      </div>
+      <div class="modnav" id="modnav"></div>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section class="perfil" id="perfil">
+      <header>
+        <div>
+          <p class="num">Tu nivel</p>
+          <h2>El nivel no se sube viendo videos: se sube adquiriendo capacidades</h2>
+          <p class="intro">Empiezas como <b>Rookie nivel 0</b>. Cada módulo completo es una <b>competencia</b> y cada competencia sube un nivel, en el orden que quieras. Cada competencia viene con una capacidad concreta que ya deberías poder ejercer: si completaste Obsidian Bases, deberías poder armar una base de datos de empresas con relaciones entre archivos Markdown; si completaste MiroFish, deberías poder simular un escenario de mercado. El personaje cambia de aspecto a medida que subes.</p>
+        </div>
+        <p class="credito"><b>Cómo se puntúa</b>Cada video suma 50 puntos más 5 por minuto. Cada competencia completa suma 200 y desbloquea una recompensa (plantillas y herramientas listas para usar). Cada reto práctico suma 150. Los logros extra (Bilingüe, Maratón, Ruta completa…) suman 100. Al completar las 10 competencias se desbloquea el certificado.</p>
+      </header>
+      <div id="perfil-contenido"></div>
+    </section>
+    <div id="curso"></div>
+    <div class="empty-state" id="empty-state">Ningún video coincide con esos filtros.</div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="row">
+        <button type="button" class="btn primary" id="btn-md">Copiar el curso como Markdown para Obsidian</button>
+        <button type="button" class="btn" id="btn-export">Copiar código de progreso</button>
+        <button type="button" class="btn" id="btn-import">Restaurar progreso</button>
+        <button type="button" class="btn" id="btn-reset">Reiniciar progreso</button>
+      </div>
+      <p>El progreso vive en este navegador. Para llevarlo a otro computador o celular: copia el código aquí y restáuralo allá.</p>
+      <p>Todos los videos pertenecen a sus autores y se reproducen con el reproductor oficial de YouTube. Catálogo verificado el 10 de septiembre de 2026.</p>
+      <p>Hecho por David con Claude Code, para Fernando. Para agregar videos, edita <code>videos.js</code>.</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+  <dialog id="dlg-nivel" class="dlg" aria-label="Subiste de nivel"></dialog>
+  <dialog id="dlg-recompensa" class="dlg" aria-label="Recompensa"></dialog>
+  <div id="certificado" class="certificado" hidden></div>
+
+  <script src="videos.js"></script>
+  <script src="gamificacion.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // El contador del hero se repite en la tarjeta de progreso.
+    document.getElementById("total-videos-2").textContent = document.getElementById("total-videos").textContent;
+  </script>
+</body>
+</html>

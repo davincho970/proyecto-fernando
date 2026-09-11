@@ -1,0 +1,297 @@
+// Proyecto Fernando — lógica de la página (sin dependencias).
+(function () {
+  "use strict";
+
+  var DATA = window.CURSO;
+  var KEY_VISTOS = "proyecto-fernando:vistos";
+  var KEY_THEME = "proyecto-fernando:theme";
+  var NIVEL = { basico: "Básico", intermedio: "Intermedio", avanzado: "Avanzado" };
+
+  var state = { lang: "all", nivel: "all", q: "", soloRuta: false, ocultarVistos: false };
+  var vistos = cargarVistos();
+  var todos = []; // lista plana de videos con referencia al módulo
+
+  DATA.modulos.forEach(function (m) {
+    m.videos.forEach(function (v) { v.modulo = m; todos.push(v); });
+  });
+
+  // ---------- Persistencia ----------
+  function cargarVistos() {
+    try { return JSON.parse(localStorage.getItem(KEY_VISTOS) || "{}"); } catch (e) { return {}; }
+  }
+  function guardarVistos() {
+    try { localStorage.setItem(KEY_VISTOS, JSON.stringify(vistos)); } catch (e) { /* modo privado, etc. */ }
+  }
+
+  // ---------- Tema ----------
+  function aplicarTema(t) {
+    var root = document.documentElement;
+    if (t === "dark" || t === "light") root.setAttribute("data-theme", t); else root.removeAttribute("data-theme");
+    try { t ? localStorage.setItem(KEY_THEME, t) : localStorage.removeItem(KEY_THEME); } catch (e) {}
+  }
+  function temaActual() {
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t) return t;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  try { var saved = localStorage.getItem(KEY_THEME); if (saved) aplicarTema(saved); } catch (e) {}
+
+  // ---------- Utilidades ----------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function dur(min) {
+    if (min < 60) return min + " min";
+    var h = Math.floor(min / 60), m = min % 60;
+    return h + " h" + (m ? " " + m + " min" : "");
+  }
+  function normalizar(s) {
+    return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- Render ----------
+  function cardHTML(v) {
+    var visto = !!vistos[v.id];
+    return (
+      '<article class="card' + (visto ? " visto" : "") + '" data-id="' + v.id + '">' +
+        '<div class="thumb" role="button" tabindex="0" aria-label="Reproducir: ' + esc(v.titulo) + '">' +
+          '<img src="https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg" alt="" loading="lazy" width="480" height="360">' +
+          '<span class="play" aria-hidden="true">&#9654;</span>' +
+          '<span class="dur">' + dur(v.min) + "</span>" +
+        "</div>" +
+        '<div class="body">' +
+          '<div class="meta">' +
+            '<span class="badge ' + v.lang + '">' + (v.lang === "es" ? "Español" : "English") + "</span>" +
+            '<span class="badge">' + NIVEL[v.nivel] + "</span>" +
+            (v.ruta ? '<span class="badge ruta">&#9733; Ruta</span>' : "") +
+          "</div>" +
+          "<h3>" + esc(v.titulo) + "</h3>" +
+          '<p class="canal">' + esc(v.canal) + " · " + v.anio + "</p>" +
+          '<p class="porque">' + esc(v.porque) + "</p>" +
+          '<div class="actions">' +
+            '<label class="check"><input type="checkbox"' + (visto ? " checked" : "") + "> Visto</label>" +
+            '<a href="https://www.youtube.com/watch?v=' + v.id + '" target="_blank" rel="noopener">Abrir en YouTube &#8599;</a>' +
+          "</div>" +
+        "</div>" +
+      "</article>"
+    );
+  }
+
+  function moduloHTML(m) {
+    return (
+      '<section class="modulo" id="m-' + m.id + '" data-id="' + m.id + '">' +
+        "<header>" +
+          "<div>" +
+            '<p class="num">Módulo ' + m.num + ' <span class="count" data-count></span></p>' +
+            "<h2>" + esc(m.titulo) + "</h2>" +
+            '<p class="intro">' + esc(m.intro) + "</p>" +
+          "</div>" +
+          "<div>" +
+            '<p class="credito"><b>Para tu trabajo de crédito</b>' + esc(m.credito) + "</p>" +
+            '<p class="comp-chip" data-chip="' + m.id + '"></p>' +
+          "</div>" +
+        "</header>" +
+        '<div class="grid">' + m.videos.map(cardHTML).join("") + "</div>" +
+      "</section>"
+    );
+  }
+
+  function renderTodo() {
+    document.getElementById("curso").innerHTML = DATA.modulos.map(moduloHTML).join("");
+    document.getElementById("modnav").innerHTML = '<a href="#perfil" class="perfil-link"><span class="n">★</span>Tu nivel</a>' + DATA.modulos.map(function (m) {
+      return '<a href="#m-' + m.id + '" data-id="' + m.id + '"><span class="n">' + m.num + "</span>" + esc(m.titulo.split(":")[0]) + "</a>";
+    }).join("");
+    var ruta = todos.filter(function (v) { return v.ruta; });
+    var suma = function (arr) { return arr.reduce(function (a, v) { return a + v.min; }, 0); };
+    document.getElementById("total-videos").textContent = todos.length;
+    document.getElementById("total-modulos").textContent = DATA.modulos.length;
+    document.getElementById("total-ruta").textContent = ruta.length;
+    document.getElementById("total-min").textContent = dur(suma(todos));
+    document.getElementById("ruta-min").textContent = dur(suma(ruta));
+    aplicarFiltros();
+    actualizarProgreso();
+    if (window.GAMI) GAMI.actualizar(vistos);
+  }
+
+  // ---------- Filtros ----------
+  function pasaFiltro(v) {
+    if (state.lang !== "all" && v.lang !== state.lang) return false;
+    if (state.nivel !== "all" && v.nivel !== state.nivel) return false;
+    if (state.soloRuta && !v.ruta) return false;
+    if (state.ocultarVistos && vistos[v.id]) return false;
+    if (state.q) {
+      var hay = normalizar(v.titulo + " " + v.canal + " " + v.porque + " " + v.modulo.titulo);
+      if (hay.indexOf(state.q) === -1) return false;
+    }
+    return true;
+  }
+
+  function contador(m) {
+    var vistosMod = m.videos.filter(function (v) { return vistos[v.id]; }).length;
+    var min = m.videos.reduce(function (a, v) { return a + v.min; }, 0);
+    return vistosMod + "/" + m.videos.length + " vistos · " + dur(min);
+  }
+
+  function aplicarFiltros() {
+    var visibles = 0;
+    DATA.modulos.forEach(function (m) {
+      var sec = document.getElementById("m-" + m.id);
+      var n = 0;
+      m.videos.forEach(function (v) {
+        var ok = pasaFiltro(v);
+        sec.querySelector('.card[data-id="' + v.id + '"]').classList.toggle("hidden", !ok);
+        if (ok) n++;
+      });
+      visibles += n;
+      sec.classList.toggle("empty", n === 0);
+      sec.querySelector("[data-count]").textContent = contador(m);
+    });
+    document.getElementById("empty-state").classList.toggle("show", visibles === 0);
+  }
+
+  // ---------- Progreso ----------
+  function actualizarProgreso() {
+    var n = todos.filter(function (v) { return vistos[v.id]; }).length;
+    var ruta = todos.filter(function (v) { return v.ruta; });
+    var nRuta = ruta.filter(function (v) { return vistos[v.id]; }).length;
+    var minVistos = todos.reduce(function (a, v) { return a + (vistos[v.id] ? v.min : 0); }, 0);
+    document.getElementById("p-num").textContent = n;
+    document.getElementById("p-bar").style.transform = "scaleX(" + (todos.length ? n / todos.length : 0) + ")";
+    document.getElementById("p-ruta").textContent = nRuta + " de " + ruta.length;
+    document.getElementById("p-min").textContent = dur(minVistos);
+    DATA.modulos.forEach(function (m) {
+      var done = m.videos.every(function (v) { return vistos[v.id]; });
+      var a = document.querySelector('.modnav a[data-id="' + m.id + '"]');
+      if (a) a.classList.toggle("done", done);
+    });
+  }
+
+  function marcar(id, valor) {
+    if (valor) vistos[id] = Date.now(); else delete vistos[id];
+    guardarVistos();
+    var card = document.querySelector('.card[data-id="' + id + '"]');
+    if (card) {
+      card.classList.toggle("visto", !!valor);
+      var cb = card.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = !!valor;
+    }
+    DATA.modulos.forEach(function (m) {
+      document.getElementById("m-" + m.id).querySelector("[data-count]").textContent = contador(m);
+    });
+    actualizarProgreso();
+    if (state.ocultarVistos) aplicarFiltros();
+    if (window.GAMI) GAMI.actualizar(vistos);
+  }
+
+  // ---------- Reproductor ----------
+  function reproducir(thumb) {
+    var id = thumb.closest(".card").getAttribute("data-id");
+    // Solo un reproductor activo a la vez: los demás vuelven a miniatura.
+    document.querySelectorAll(".thumb iframe").forEach(function (f) {
+      var t = f.parentNode, vid = t.closest(".card").getAttribute("data-id");
+      var v = todos.find(function (x) { return x.id === vid; });
+      t.innerHTML = '<img src="https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg" alt="" loading="lazy" width="480" height="360">' +
+        '<span class="play" aria-hidden="true">&#9654;</span><span class="dur">' + dur(v.min) + "</span>";
+    });
+    thumb.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0" title="Reproductor de YouTube" ' +
+      'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>';
+  }
+
+  // ---------- Exportar a Markdown (Obsidian) ----------
+  function markdown() {
+    var out = ["# " + DATA.titulo, "", "Progreso: " + todos.filter(function (v) { return vistos[v.id]; }).length + " de " + todos.length + " videos vistos.", ""];
+    if (window.GAMI) out.push(GAMI.markdown(vistos), "");
+    DATA.modulos.forEach(function (m) {
+      out.push("## " + m.num + ". " + m.titulo, "", m.intro, "", "> **Para crédito:** " + m.credito, "");
+      m.videos.forEach(function (v) {
+        out.push("- [" + (vistos[v.id] ? "x" : " ") + "] " + (v.ruta ? "★ " : "") + "[" + v.titulo + "](https://www.youtube.com/watch?v=" + v.id + ") — " +
+          v.canal + " · " + (v.lang === "es" ? "ES" : "EN") + " · " + dur(v.min) + " · " + NIVEL[v.nivel] + "\n  - " + v.porque);
+      });
+      out.push("");
+    });
+    return out.join("\n");
+  }
+  function copiar(texto) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto);
+    return new Promise(function (res, rej) {
+      var ta = document.createElement("textarea");
+      ta.value = texto; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); res(); } catch (e) { rej(e); }
+      document.body.removeChild(ta);
+    });
+  }
+
+  // ---------- Eventos ----------
+  function bind() {
+    var curso = document.getElementById("curso");
+    curso.addEventListener("click", function (e) {
+      var thumb = e.target.closest(".thumb");
+      if (thumb && !thumb.querySelector("iframe")) { reproducir(thumb); return; }
+    });
+    curso.addEventListener("keydown", function (e) {
+      var thumb = e.target.closest(".thumb");
+      if (thumb && (e.key === "Enter" || e.key === " ") && !thumb.querySelector("iframe")) { e.preventDefault(); reproducir(thumb); }
+    });
+    curso.addEventListener("change", function (e) {
+      if (e.target.matches('.check input[type="checkbox"]')) {
+        marcar(e.target.closest(".card").getAttribute("data-id"), e.target.checked);
+      }
+    });
+
+    document.querySelectorAll("#seg-lang button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        document.querySelectorAll("#seg-lang button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true");
+        state.lang = b.getAttribute("data-lang");
+        aplicarFiltros();
+      });
+    });
+    document.getElementById("sel-nivel").addEventListener("change", function (e) { state.nivel = e.target.value; aplicarFiltros(); });
+    document.getElementById("q").addEventListener("input", function (e) { state.q = normalizar(e.target.value.trim()); aplicarFiltros(); });
+    document.getElementById("chk-ruta").addEventListener("change", function (e) { state.soloRuta = e.target.checked; aplicarFiltros(); });
+    document.getElementById("chk-ocultar").addEventListener("change", function (e) { state.ocultarVistos = e.target.checked; aplicarFiltros(); });
+
+    document.getElementById("btn-theme").addEventListener("click", function () {
+      aplicarTema(temaActual() === "dark" ? "light" : "dark");
+    });
+
+    document.getElementById("btn-md").addEventListener("click", function () {
+      copiar(markdown()).then(function () { toast("Copiado. Pégalo en una nota nueva de Obsidian."); },
+                              function () { toast("No se pudo copiar automáticamente."); });
+    });
+    document.getElementById("btn-export").addEventListener("click", function () {
+      var extra = window.GAMI ? GAMI.exportar() : {};
+      var codigo = btoa(unescape(encodeURIComponent(JSON.stringify({ v: vistos, r: extra.retos || {}, c: extra.celebrados || null }))));
+      copiar("PF1:" + codigo).then(function () { toast("Código de progreso copiado. Guárdalo en una nota."); },
+                                  function () { prompt("Copia este código:", "PF1:" + codigo); });
+    });
+    document.getElementById("btn-import").addEventListener("click", function () {
+      var codigo = prompt("Pega tu código de progreso (empieza por PF1:):");
+      if (!codigo) return;
+      try {
+        var obj = JSON.parse(decodeURIComponent(escape(atob(codigo.trim().replace(/^PF1:/, "")))));
+        vistos = obj.v || {}; guardarVistos();
+        if (window.GAMI) GAMI.importar({ retos: obj.r, celebrados: obj.c });
+        renderTodo(); toast("Progreso restaurado.");
+      } catch (e) { toast("Ese código no es válido."); }
+    });
+    document.getElementById("btn-reset").addEventListener("click", function () {
+      if (!confirm("¿Borrar el progreso guardado en este navegador?")) return;
+      vistos = {}; guardarVistos(); if (window.GAMI) GAMI.reiniciar(); renderTodo(); toast("Progreso reiniciado.");
+    });
+  }
+
+  if (window.GAMI) GAMI.init({ data: DATA, notify: toast });
+  renderTodo();
+  bind();
+})();
