@@ -1,27 +1,37 @@
 // Proyecto Fernando — lógica de la página (sin dependencias).
+// Perfiles (perfiles.js) + catálogo (videos.js) + gamificación (gamificacion.js).
 (function () {
   "use strict";
 
-  var DATA = window.CURSO;
-  var KEY_VISTOS = "proyecto-fernando:vistos";
+  var CATALOGO = window.CURSO, PERFILES = window.PERFILES;
+  var KEY_PERFIL = "proyecto-fernando:perfil";
   var KEY_THEME = "proyecto-fernando:theme";
   var NIVEL = { basico: "Básico", intermedio: "Intermedio", avanzado: "Avanzado" };
 
+  var perfil = null, DATA = null, vistos = {}, todos = [];
   var state = { lang: "all", nivel: "all", q: "", soloRuta: false, ocultarVistos: false };
-  var vistos = cargarVistos();
-  var todos = []; // lista plana de videos con referencia al módulo
 
-  DATA.modulos.forEach(function (m) {
-    m.videos.forEach(function (v) { v.modulo = m; todos.push(v); });
-  });
-
-  // ---------- Persistencia ----------
+  // ---------- Persistencia (por perfil) ----------
+  function keyVistos() { return "proyecto-fernando:" + perfil.id + ":vistos"; }
   function cargarVistos() {
-    try { return JSON.parse(localStorage.getItem(KEY_VISTOS) || "{}"); } catch (e) { return {}; }
+    try {
+      var v = localStorage.getItem(keyVistos());
+      // migración: el progreso anterior a los perfiles era de Fernando
+      if (v === null && perfil.id === "fernando") {
+        var viejo = localStorage.getItem("proyecto-fernando:vistos");
+        if (viejo) {
+          localStorage.setItem(keyVistos(), viejo); localStorage.removeItem("proyecto-fernando:vistos");
+          ["retos", "celebrados"].forEach(function (k) {
+            var x = localStorage.getItem("proyecto-fernando:" + k);
+            if (x) { localStorage.setItem("proyecto-fernando:fernando:" + k, x); localStorage.removeItem("proyecto-fernando:" + k); }
+          });
+          v = viejo;
+        }
+      }
+      return JSON.parse(v || "{}");
+    } catch (e) { return {}; }
   }
-  function guardarVistos() {
-    try { localStorage.setItem(KEY_VISTOS, JSON.stringify(vistos)); } catch (e) { /* modo privado, etc. */ }
-  }
+  function guardarVistos() { try { localStorage.setItem(keyVistos(), JSON.stringify(vistos)); } catch (e) {} }
 
   // ---------- Tema ----------
   function aplicarTema(t) {
@@ -57,6 +67,70 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { el.classList.remove("show"); }, 2200);
   }
+  function numModulo(m) { return DATA.modulos.indexOf(m) + 1; }
+
+  // ---------- Perfil ----------
+  function construirDATA(p) {
+    var mods = p.modulos.map(function (id) {
+      return CATALOGO.modulos.filter(function (m) { return m.id === id; })[0];
+    }).filter(Boolean);
+    return { titulo: p.titulo, modulos: mods };
+  }
+
+  function iniciarPerfil(id) {
+    perfil = PERFILES[id];
+    try { localStorage.setItem(KEY_PERFIL, id); } catch (e) {}
+    DATA = construirDATA(perfil);
+    todos = [];
+    DATA.modulos.forEach(function (m) { m.videos.forEach(function (v) { v.modulo = m; todos.push(v); }); });
+    vistos = cargarVistos();
+    document.body.setAttribute("data-perfil", id);
+    // Textos del hero
+    document.getElementById("hero-titulo").textContent = perfil.titulo;
+    document.getElementById("hero-lede-perfil").textContent = perfil.lede;
+    document.getElementById("perfil-nombre").textContent = perfil.nombre;
+    document.getElementById("perfil-rol").textContent = perfil.rol;
+    document.getElementById("p-comp").textContent = "0 de " + perfil.competencias.length;
+    document.title = "Proyecto Fernando · " + perfil.nombre;
+    if (window.GAMI) GAMI.init({ data: DATA, perfil: perfil, notify: toast });
+    renderTodo();
+    document.getElementById("bienvenida").hidden = true;
+    document.body.classList.remove("bienvenida-abierta");
+  }
+
+  function mostrarBienvenida() {
+    var cont = document.getElementById("bienvenida-opciones");
+    cont.innerHTML = Object.keys(PERFILES).map(function (id) {
+      var p = PERFILES[id];
+      return '<button type="button" class="quien" data-perfil="' + id + '">' +
+        '<span class="quien-avatar">' + (window.GAMI ? GAMI.avatar(0, p) : "") + "</span>" +
+        '<span class="quien-nombre">' + esc(p.nombre) + "</span>" +
+        '<span class="quien-rol">' + esc(p.rol) + "</span>" +
+        "</button>";
+    }).join("");
+    document.getElementById("bienvenida").hidden = false;
+    document.body.classList.add("bienvenida-abierta");
+  }
+
+  // ---------- Pestañas ----------
+  function activarTab(nombre, sinScroll) {
+    document.querySelectorAll("[data-tab]").forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab") === nombre ? "true" : "false"); });
+    document.querySelectorAll("[data-panel]").forEach(function (p) { p.hidden = p.getAttribute("data-panel") !== nombre; });
+    document.querySelectorAll("[data-only]").forEach(function (el) { el.hidden = el.getAttribute("data-only") !== nombre; });
+    if (!sinScroll) {
+      var tabs = document.getElementById("tabs");
+      if (tabs && tabs.getBoundingClientRect().top < 0) tabs.scrollIntoView({ behavior: "instant", block: "start" });
+    }
+  }
+  function irA(hash) {
+    if (!hash || hash === "#") return false;
+    var el = document.querySelector(hash);
+    if (!el) return false;
+    var panel = el.closest("[data-panel]");
+    if (panel) activarTab(panel.getAttribute("data-panel"), true);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
 
   // ---------- Render ----------
   function cardHTML(v) {
@@ -87,16 +161,17 @@
   }
 
   function moduloHTML(m) {
+    var aplicado = (m.aplicado && m.aplicado[perfil.id]) || m.credito || "";
     return (
       '<section class="modulo" id="m-' + m.id + '" data-id="' + m.id + '">' +
         "<header>" +
           "<div>" +
-            '<p class="num">Módulo ' + m.num + ' <span class="count" data-count></span></p>' +
+            '<p class="num">Módulo ' + numModulo(m) + ' <span class="count" data-count></span></p>' +
             "<h2>" + esc(m.titulo) + "</h2>" +
             '<p class="intro">' + esc(m.intro) + "</p>" +
           "</div>" +
           "<div>" +
-            '<p class="credito"><b>Para tu trabajo de crédito</b>' + esc(m.credito) + "</p>" +
+            '<p class="credito"><b>' + esc(perfil.etiquetaAplicado) + "</b>" + esc(aplicado) + "</p>" +
             '<p class="comp-chip" data-chip="' + m.id + '"></p>' +
           "</div>" +
         "</header>" +
@@ -107,12 +182,13 @@
 
   function renderTodo() {
     document.getElementById("curso").innerHTML = DATA.modulos.map(moduloHTML).join("");
-    document.getElementById("modnav").innerHTML = '<a href="#perfil" class="perfil-link"><span class="n">★</span>Tu nivel</a>' + DATA.modulos.map(function (m) {
-      return '<a href="#m-' + m.id + '" data-id="' + m.id + '"><span class="n">' + m.num + "</span>" + esc(m.titulo.split(":")[0]) + "</a>";
+    document.getElementById("modnav").innerHTML = DATA.modulos.map(function (m) {
+      return '<a href="#m-' + m.id + '" data-id="' + m.id + '"><span class="n">' + numModulo(m) + "</span>" + esc(m.titulo.split(":")[0]) + "</a>";
     }).join("");
     var ruta = todos.filter(function (v) { return v.ruta; });
     var suma = function (arr) { return arr.reduce(function (a, v) { return a + v.min; }, 0); };
     document.getElementById("total-videos").textContent = todos.length;
+    document.getElementById("total-videos-2").textContent = todos.length;
     document.getElementById("total-modulos").textContent = DATA.modulos.length;
     document.getElementById("total-ruta").textContent = ruta.length;
     document.getElementById("total-min").textContent = dur(suma(todos));
@@ -195,10 +271,9 @@
   // ---------- Reproductor ----------
   function reproducir(thumb) {
     var id = thumb.closest(".card").getAttribute("data-id");
-    // Solo un reproductor activo a la vez: los demás vuelven a miniatura.
     document.querySelectorAll(".thumb iframe").forEach(function (f) {
       var t = f.parentNode, vid = t.closest(".card").getAttribute("data-id");
-      var v = todos.find(function (x) { return x.id === vid; });
+      var v = todos.filter(function (x) { return x.id === vid; })[0];
       t.innerHTML = '<img src="https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg" alt="" loading="lazy" width="480" height="360">' +
         '<span class="play" aria-hidden="true">&#9654;</span><span class="dur">' + dur(v.min) + "</span>";
     });
@@ -208,10 +283,11 @@
 
   // ---------- Exportar a Markdown (Obsidian) ----------
   function markdown() {
-    var out = ["# " + DATA.titulo, "", "Progreso: " + todos.filter(function (v) { return vistos[v.id]; }).length + " de " + todos.length + " videos vistos.", ""];
+    var out = ["# " + DATA.titulo + " — " + perfil.nombre, "", "Progreso: " + todos.filter(function (v) { return vistos[v.id]; }).length + " de " + todos.length + " videos vistos.", ""];
     if (window.GAMI) out.push(GAMI.markdown(vistos), "");
     DATA.modulos.forEach(function (m) {
-      out.push("## " + m.num + ". " + m.titulo, "", m.intro, "", "> **Para crédito:** " + m.credito, "");
+      var aplicado = (m.aplicado && m.aplicado[perfil.id]) || "";
+      out.push("## " + numModulo(m) + ". " + m.titulo, "", m.intro, "", "> **" + perfil.etiquetaAplicado + ":** " + aplicado, "");
       m.videos.forEach(function (v) {
         out.push("- [" + (vistos[v.id] ? "x" : " ") + "] " + (v.ruta ? "★ " : "") + "[" + v.titulo + "](https://www.youtube.com/watch?v=" + v.id + ") — " +
           v.canal + " · " + (v.lang === "es" ? "ES" : "EN") + " · " + dur(v.min) + " · " + NIVEL[v.nivel] + "\n  - " + v.porque);
@@ -248,6 +324,24 @@
       }
     });
 
+    // Pestañas y navegación interna
+    document.querySelectorAll("[data-tab]").forEach(function (b) {
+      b.addEventListener("click", function () { activarTab(b.getAttribute("data-tab")); });
+    });
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest('a[href^="#"]');
+      if (!a) return;
+      var hash = a.getAttribute("href");
+      if (hash.length > 1 && irA(hash)) { e.preventDefault(); history.replaceState(null, "", hash); }
+    });
+
+    // Bienvenida / cambio de perfil
+    document.getElementById("bienvenida-opciones").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-perfil]");
+      if (b) { iniciarPerfil(b.getAttribute("data-perfil")); activarTab("curso", true); window.scrollTo({ top: 0, behavior: "instant" }); }
+    });
+    document.getElementById("btn-cambiar-perfil").addEventListener("click", mostrarBienvenida);
+
     document.querySelectorAll("#seg-lang button").forEach(function (b) {
       b.addEventListener("click", function () {
         document.querySelectorAll("#seg-lang button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
@@ -271,27 +365,39 @@
     });
     document.getElementById("btn-export").addEventListener("click", function () {
       var extra = window.GAMI ? GAMI.exportar() : {};
-      var codigo = btoa(unescape(encodeURIComponent(JSON.stringify({ v: vistos, r: extra.retos || {}, c: extra.celebrados || null }))));
-      copiar("PF1:" + codigo).then(function () { toast("Código de progreso copiado. Guárdalo en una nota."); },
-                                  function () { prompt("Copia este código:", "PF1:" + codigo); });
+      var codigo = btoa(unescape(encodeURIComponent(JSON.stringify({ p: perfil.id, v: vistos, r: extra.retos || {}, c: extra.celebrados || null }))));
+      copiar("PF2:" + codigo).then(function () { toast("Código de progreso copiado. Guárdalo en una nota."); },
+                                  function () { prompt("Copia este código:", "PF2:" + codigo); });
     });
     document.getElementById("btn-import").addEventListener("click", function () {
-      var codigo = prompt("Pega tu código de progreso (empieza por PF1:):");
+      var codigo = prompt("Pega tu código de progreso (empieza por PF1: o PF2:):");
       if (!codigo) return;
       try {
-        var obj = JSON.parse(decodeURIComponent(escape(atob(codigo.trim().replace(/^PF1:/, "")))));
+        var obj = JSON.parse(decodeURIComponent(escape(atob(codigo.trim().replace(/^PF[12]:/, "")))));
+        if (obj.p && PERFILES[obj.p] && obj.p !== perfil.id) iniciarPerfil(obj.p);
         vistos = obj.v || {}; guardarVistos();
         if (window.GAMI) GAMI.importar({ retos: obj.r, celebrados: obj.c });
         renderTodo(); toast("Progreso restaurado.");
       } catch (e) { toast("Ese código no es válido."); }
     });
     document.getElementById("btn-reset").addEventListener("click", function () {
-      if (!confirm("¿Borrar el progreso guardado en este navegador?")) return;
+      if (!confirm("¿Borrar el progreso de " + perfil.nombre + " guardado en este navegador?")) return;
       vistos = {}; guardarVistos(); if (window.GAMI) GAMI.reiniciar(); renderTodo(); toast("Progreso reiniciado.");
     });
   }
 
-  if (window.GAMI) GAMI.init({ data: DATA, notify: toast });
-  renderTodo();
+  // ---------- Arranque ----------
+  window.APP = { numModulo: numModulo, perfil: function () { return perfil; } };
   bind();
+  var guardado = null;
+  try { guardado = localStorage.getItem(KEY_PERFIL); } catch (e) {}
+  if (guardado && PERFILES[guardado]) {
+    iniciarPerfil(guardado);
+    activarTab("curso", true);
+    if (location.hash) setTimeout(function () { irA(location.hash); }, 50);
+  } else {
+    // sin perfil: se muestra la bienvenida sobre una página vacía pero con estructura
+    activarTab("curso", true);
+    mostrarBienvenida();
+  }
 })();
